@@ -1,0 +1,14 @@
+[build]
+  command = """
+    curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh &&
+    chmod +x dotnet-install.sh &&
+    ./dotnet-install.sh --channel 9.0 --install-dir "$NETLIFY_BUILD_BASE/dotnet" &&
+    export PATH="$NETLIFY_BUILD_BASE/dotnet:$PATH" &&
+    dotnet publish -c Release -o publish
+  """
+  publish = "publish/wwwroot"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,135 @@
+@page "/"
+@page "/attendance"
+@attribute [Authorize]
+@inject IAuthService AuthService
+@inject BrowserGeolocationService Geolocation
+@inject SmartCodeGeofenceService Geofence
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Smart Code Attendance</PageTitle>
+
+<section class="attendance-page-simple">
+    <MudCard Elevation="4" Class="attendance-card-simple">
+        <div class="attendance-topbar">
+            <img src="assets/main-logo.png" alt="Smart Code Logo" class="attendance-logo" />
+            <MudTooltip Text="Sign out">
+                <MudIconButton Icon="@Icons.Material.Rounded.Logout"
+                               Variant="Variant.Text"
+                               Color="Color.Default"
+                               OnClick="LogoutAsync" />
+            </MudTooltip>
+        </div>
+
+        <MudText Typo="Typo.h5" Class="mb-6 text-center">Sign attendance from Smart Code location</MudText>
+
+        <MudForm @ref="_attendanceForm" Model="@_attendanceModel">
+            <MudTextField @bind-Value="_attendanceModel.Name"
+                          For="@(() => _attendanceModel.Name)"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="Enter your name before signing attendance."
+                          Class="mb-4" />
+
+            <MudButton OnClick="SignAttendanceAsync"
+                       Disabled="@_isLocating"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Medium"
+                       Class="mb-4">
+                @if (_isLocating)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                    <span>Checking location...</span>
+                }
+                else
+                {
+                    <span>SIGN ATTENDANCE</span>
+                }
+            </MudButton>
+        </MudForm>
+
+        @if (_decision is not null)
+        {
+            <MudAlert Severity="@(_decision.IsApproved ? Severity.Success : Severity.Error)" Class="mt-2">
+                <strong>@_decision.StatusText</strong>
+                <div>Distance: @_decision.DistanceText</div>
+                <div>@_decision.Reason</div>
+            </MudAlert>
+        }
+        else if (_locationError is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-2">
+                @_locationError
+            </MudAlert>
+        }
+    </MudCard>
+    </section>
+
+@code {
+    private readonly AttendanceFormModel _attendanceModel = new();
+    private MudForm? _attendanceForm;
+    private GeofenceDecision? _decision;
+    private string? _locationError;
+    private string? _userName;
+    private bool _isLocating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userName = await AuthService.GetUserNameAsync();
+        _attendanceModel.Name = _userName ?? string.Empty;
+    }
+
+    private async Task SignAttendanceAsync()
+    {
+        if (_attendanceForm is null)
+        {
+            return;
+        }
+
+        await _attendanceForm.ValidateAsync();
+
+        if (!_attendanceForm.IsValid || _attendanceModel.Name.Trim().Length < 2)
+        {
+            Snackbar.Add("Enter a valid employee name before checking location.", Severity.Warning);
+            return;
+        }
+
+        _isLocating = true;
+        _locationError = null;
+        _decision = null;
+
+        try
+        {
+            var currentLocation = await Geolocation.GetCurrentPositionAsync();
+            _decision = Geofence.Evaluate(currentLocation);
+
+            Snackbar.Add(_decision.Reason, _decision.IsApproved ? Severity.Success : Severity.Error);
+        }
+        catch (GeolocationException ex)
+        {
+            _locationError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _isLocating = false;
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
+
+    private sealed class AttendanceFormModel
+    {
+        [Required(ErrorMessage = "Enter your name before signing attendance.")]
+        [MinLength(2, ErrorMessage = "Name must be at least 2 characters.")]
+        public string Name { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,22 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="not-found-shell">
+                <MudIcon Icon="@Icons.Material.Rounded.TravelExplore" Size="Size.Large" />
+                <MudText Typo="Typo.h4">This route is outside the boundary.</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Return to the Smart Code attendance dashboard.</MudText>
+                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.ArrowBack">
+                    Back to dashboard
+                </MudButton>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>

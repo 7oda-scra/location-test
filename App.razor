@@ -1,0 +1,110 @@
+<CascadingAuthenticationState>
+    <MudThemeProvider Theme="@_theme" />
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+    <Routes />
+</CascadingAuthenticationState>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#2563eb",
+            Secondary = "#475569",
+            Tertiary = "#2563eb",
+            Background = "#f3f6fb",
+            Surface = "#ffffff",
+            AppbarBackground = "#ffffff",
+            AppbarText = "#f8fafc",
+            DrawerBackground = "#ffffff",
+            TextPrimary = "#020617",
+            TextSecondary = "#64748b",
+            Success = "#15803d",
+            Error = "#dc2626",
+            Warning = "#d97706",
+            Info = "#2563eb",
+            LinesDefault = "rgba(15, 23, 42, 0.16)",
+            Divider = "rgba(15, 23, 42, 0.12)"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = ["Inter", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+                FontSize = ".95rem",
+                LineHeight = "1.55"
+            },
+            H1 = new H1Typography
+            {
+                FontFamily = ["Inter", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+                FontWeight = "800",
+                LetterSpacing = "0"
+            },
+            H2 = new H2Typography
+            {
+                FontFamily = ["Inter", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+                FontWeight = "800",
+                LetterSpacing = "0"
+            },
+            H4 = new H4Typography
+            {
+                FontWeight = "800",
+                LetterSpacing = "0"
+            },
+            H5 = new H5Typography
+            {
+                FontWeight = "760",
+                LetterSpacing = "0"
+            },
+            H6 = new H6Typography
+            {
+                FontWeight = "720",
+                LetterSpacing = "0"
+            },
+            Button = new ButtonTypography
+            {
+                FontWeight = "700",
+                TextTransform = "none",
+                LetterSpacing = "0"
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "8px"
+        },
+        Shadows = new Shadow
+        {
+            Elevation = new[]
+            {
+                "none",
+                "0 1px 2px rgba(15, 23, 42, .05)",
+                "0 2px 8px rgba(15, 23, 42, .08)",
+                "0 8px 24px rgba(15, 23, 42, .10)",
+                "0 12px 36px rgba(15, 23, 42, .12)",
+                "0 20px 50px rgba(15, 23, 42, .14)",
+                "0 24px 70px rgba(15, 23, 42, .16)",
+                "0 28px 80px rgba(15, 23, 42, .18)",
+                "0 32px 96px rgba(15, 23, 42, .20)",
+                "0 36px 110px rgba(15, 23, 42, .22)",
+                "0 40px 130px rgba(15, 23, 42, .24)",
+                "0 44px 150px rgba(15, 23, 42, .26)",
+                "0 48px 170px rgba(15, 23, 42, .28)",
+                "0 52px 190px rgba(15, 23, 42, .30)",
+                "0 56px 210px rgba(15, 23, 42, .32)",
+                "0 60px 230px rgba(15, 23, 42, .34)",
+                "0 64px 250px rgba(15, 23, 42, .36)",
+                "0 68px 270px rgba(15, 23, 42, .38)",
+                "0 72px 290px rgba(15, 23, 42, .40)",
+                "0 76px 310px rgba(15, 23, 42, .42)",
+                "0 80px 330px rgba(15, 23, 42, .44)",
+                "0 84px 350px rgba(15, 23, 42, .46)",
+                "0 88px 370px rgba(15, 23, 42, .48)",
+                "0 92px 390px rgba(15, 23, 42, .50)",
+                "0 96px 410px rgba(15, 23, 42, .52)",
+                "0 100px 430px rgba(15, 23, 42, .54)"
+            }
+        }
+    };
+}

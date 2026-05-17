@@ -1,0 +1,124 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Smart Code ERP</PageTitle>
+
+<div class="login-page">
+    <MudCard Elevation="4" Class="login-card-simple">
+        <img src="assets/main-logo.png" alt="Smart Code Logo" class="login-logo" />
+
+        <MudText Typo="Typo.h5" Class="mb-6 text-center">Sign in to Smart Code ERP</MudText>
+
+        <EditForm Model="@_loginModel" OnValidSubmit="HandleLogin" class="login-form">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+            }
+
+            <MudTextField @bind-Value="_loginModel.Username"
+                          For="@(() => _loginModel.Username)"
+                          Label="Username"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Required="true"
+                          RequiredError="Username is required."
+                          Class="mb-4" />
+
+            <MudTextField @bind-Value="_loginModel.Password"
+                          For="@(() => _loginModel.Password)"
+                          Label="Password"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          InputType="InputType.Password"
+                          Required="true"
+                          RequiredError="Password is required."
+                          Class="mb-2" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Medium"
+                       Disabled="@_isLoading"
+                       Class="mt-2">
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Class="me-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Signing in...</span>
+                }
+                else
+                {
+                    <span>SIGN IN</span>
+                }
+            </MudButton>
+        </EditForm>
+    </MudCard>
+</div>
+
+@code {
+    private readonly LoginModel _loginModel = new();
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            NavigationManager.NavigateTo(GetSafeReturnUrl(), replace: true);
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        _errorMessage = null;
+        _isLoading = true;
+
+        try
+        {
+            var success = await AuthService.LoginAsync(_loginModel.Username, _loginModel.Password);
+
+            if (success)
+            {
+                NavigationManager.NavigateTo(GetSafeReturnUrl(), replace: true);
+                return;
+            }
+
+            _errorMessage = "Invalid username or password.";
+        }
+        catch
+        {
+            _errorMessage = "The sign-in request failed. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetSafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            return "/";
+        }
+
+        return ReturnUrl.StartsWith('/') && !ReturnUrl.StartsWith("//", StringComparison.Ordinal)
+            ? ReturnUrl
+            : "/";
+    }
+
+    private sealed class LoginModel
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}
