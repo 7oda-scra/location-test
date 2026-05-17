@@ -4,9 +4,9 @@ namespace SmartCodeAttendance.Services.Geofencing;
 
 public sealed class SmartCodeGeofenceService
 {
-    public const double TargetLatitude = 30.786908;
-    public const double TargetLongitude = 31.001009;
-    public const double RadiusMeters = 50;
+    public const double TargetLatitude = 30.786776;
+    public const double TargetLongitude = 31.001057;
+    public const double RadiusMeters = 100;
 
     private const double EarthRadiusMeters = 6_371_000;
 
@@ -53,7 +53,7 @@ public sealed class SmartCodeGeofenceService
         var deltaLongitude = DegreesToRadians(longitude2 - longitude1);
 
         // Haversine computes the great-circle distance between two points on a sphere.
-        // It is stable for short distances, which makes it a good fit for a 50 meter geofence.
+        // It is stable for short distances, which makes it a good fit for a 100 meter geofence.
         var haversine = Math.Pow(Math.Sin(deltaLatitude / 2), 2)
             + Math.Cos(lat1Radians) * Math.Cos(lat2Radians) * Math.Pow(Math.Sin(deltaLongitude / 2), 2);
 

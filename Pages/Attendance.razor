@@ -57,6 +57,7 @@
             <MudAlert Severity="@(_decision.IsApproved ? Severity.Success : Severity.Error)" Class="mt-2">
                 <strong>@_decision.StatusText</strong>
                 <div>Distance: @_decision.DistanceText</div>
+                <div>Accuracy: @FormatAccuracy(_decision.CurrentLocation.AccuracyMeters)</div>
                 <div>@_decision.Reason</div>
             </MudAlert>
         }
@@ -67,7 +68,7 @@
             </MudAlert>
         }
     </MudCard>
-    </section>
+</section>
 
 @code {
     private readonly AttendanceFormModel _attendanceModel = new();
@@ -124,6 +125,13 @@
     {
         await AuthService.LogoutAsync();
         Navigation.NavigateTo("/login", replace: true);
+    }
+
+    private static string FormatAccuracy(double? accuracyMeters)
+    {
+        return accuracyMeters is null
+            ? "Unknown"
+            : SmartCodeGeofenceService.FormatDistance(accuracyMeters.Value);
     }
 
     private sealed class AttendanceFormModel
