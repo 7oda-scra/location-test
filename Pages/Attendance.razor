@@ -3,9 +3,11 @@
 @attribute [Authorize]
 @inject IAuthService AuthService
 @inject BrowserGeolocationService Geolocation
-@inject SmartCodeGeofenceService Geofence
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject HttpClient Http
+@implements IAsyncDisposable
 
 <PageTitle>Smart Code Attendance</PageTitle>
 
@@ -34,16 +36,65 @@
                           RequiredError="Enter your name before signing attendance."
                           Class="mb-4" />
 
+            <div class="face-camera-shell mb-4">
+                <video @ref="_videoElement"
+                       class="face-camera-video @(_isCameraActive ? string.Empty : "is-hidden")"
+                       autoplay
+                       muted
+                       playsinline></video>
+
+                @if (_selfieDataUrl is not null)
+                {
+                    <img src="@_selfieDataUrl" alt="Captured selfie" class="face-camera-photo" />
+                }
+                else if (!_isCameraActive)
+                {
+                    <div class="face-camera-placeholder">
+                        <MudIcon Icon="@Icons.Material.Rounded.CameraAlt" Size="Size.Large" />
+                        <span>Capture face before signing</span>
+                    </div>
+                }
+            </div>
+
+            <div class="camera-actions mb-4">
+                <MudButton OnClick="StartCameraAsync"
+                           Disabled="@(_isCameraBusy || _isSubmitting)"
+                           Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.Videocam">
+                    Start Camera
+                </MudButton>
+
+                <MudButton OnClick="CaptureFaceAsync"
+                           Disabled="@(!_isCameraActive || _isCameraBusy || _isSubmitting)"
+                           Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.PhotoCamera">
+                    Capture Face
+                </MudButton>
+
+                <MudButton OnClick="RetakeAsync"
+                           Disabled="@(_selfieDataUrl is null || _isCameraBusy || _isSubmitting)"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.Replay">
+                    Retake
+                </MudButton>
+            </div>
+
             <MudButton OnClick="SignAttendanceAsync"
-                       Disabled="@_isLocating"
+                       Disabled="@_isSubmitting"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
                        Size="Size.Medium"
                        Class="mb-4">
-                @if (_isLocating)
+                @if (_isSubmitting)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                    <span>Checking location...</span>
+                    <span>Checking location and verifying face...</span>
                 }
                 else
                 {
@@ -52,36 +103,98 @@
             </MudButton>
         </MudForm>
 
-        @if (_decision is not null)
+        @if (_submissionResult is not null)
         {
-            <MudAlert Severity="@(_decision.IsApproved ? Severity.Success : Severity.Error)" Class="mt-2">
-                <strong>@_decision.StatusText</strong>
-                <div>Distance: @_decision.DistanceText</div>
-                <div>Accuracy: @FormatAccuracy(_decision.CurrentLocation.AccuracyMeters)</div>
-                <div>@_decision.Reason</div>
+            <MudAlert Severity="@(_submissionResult.Approved ? Severity.Success : Severity.Error)" Class="mt-2">
+                <strong>@(_submissionResult.Approved ? "Approved" : "Denied")</strong>
+                <div>@BuildResultMessage(_submissionResult)</div>
+                <div>Distance: @FormatDistance(_submissionResult.DistanceMeters)</div>
+                <div>Face confidence: @FormatConfidence(_submissionResult.Confidence)</div>
             </MudAlert>
         }
-        else if (_locationError is not null)
+        else if (_statusError is not null)
         {
             <MudAlert Severity="Severity.Warning" Class="mt-2">
-                @_locationError
+                @_statusError
             </MudAlert>
         }
     </MudCard>
 </section>
 
 @code {
+    private const string SignAttendanceEndpoint = "/.netlify/functions/sign-attendance";
+
     private readonly AttendanceFormModel _attendanceModel = new();
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private MudForm? _attendanceForm;
-    private GeofenceDecision? _decision;
-    private string? _locationError;
+    private ElementReference _videoElement;
+    private AttendanceSubmissionResult? _submissionResult;
+    private string? _selfieDataUrl;
+    private string? _statusError;
     private string? _userName;
-    private bool _isLocating;
+    private bool _isSubmitting;
+    private bool _isCameraActive;
+    private bool _isCameraBusy;
 
     protected override async Task OnInitializedAsync()
     {
         _userName = await AuthService.GetUserNameAsync();
         _attendanceModel.Name = _userName ?? string.Empty;
+    }
+
+    private async Task StartCameraAsync()
+    {
+        _isCameraBusy = true;
+        _statusError = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("smartCodeFaceCamera.startCamera", _videoElement);
+            _selfieDataUrl = null;
+            _isCameraActive = true;
+        }
+        catch (JSException ex)
+        {
+            _isCameraActive = false;
+            _statusError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _isCameraBusy = false;
+        }
+    }
+
+    private async Task CaptureFaceAsync()
+    {
+        _isCameraBusy = true;
+        _statusError = null;
+
+        try
+        {
+            _selfieDataUrl = await JS.InvokeAsync<string>("smartCodeFaceCamera.captureJpeg", _videoElement, 0.9);
+            await StopCameraAsync();
+        }
+        catch (JSException ex)
+        {
+            _statusError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _isCameraBusy = false;
+        }
+    }
+
+    private async Task RetakeAsync()
+    {
+        _selfieDataUrl = null;
+        _submissionResult = null;
+        await StartCameraAsync();
     }
 
     private async Task SignAttendanceAsync()
@@ -99,26 +212,96 @@
             return;
         }
 
-        _isLocating = true;
-        _locationError = null;
-        _decision = null;
+        if (_selfieDataUrl is null)
+        {
+            _statusError = "Capture your face before signing attendance.";
+            Snackbar.Add("Capture your face before signing attendance.", Severity.Warning);
+            return;
+        }
+
+        _isSubmitting = true;
+        _statusError = null;
+        _submissionResult = null;
 
         try
         {
             var currentLocation = await Geolocation.GetCurrentPositionAsync();
-            _decision = Geofence.Evaluate(currentLocation);
+            var result = await SubmitAttendanceAsync(currentLocation);
 
-            Snackbar.Add(_decision.Reason, _decision.IsApproved ? Severity.Success : Severity.Error);
+            _submissionResult = result;
+            Snackbar.Add(BuildSnackbarMessage(result), result.Approved ? Severity.Success : Severity.Error);
         }
         catch (GeolocationException ex)
         {
-            _locationError = ex.Message;
+            _statusError = ex.Message;
             Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (HttpRequestException)
+        {
+            const string message = "Network error while signing attendance. Check your connection and try again.";
+            _statusError = message;
+            Snackbar.Add(message, Severity.Error);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _statusError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            const string message = "Attendance service returned an unreadable response.";
+            _statusError = message;
+            Snackbar.Add(message, Severity.Error);
         }
         finally
         {
-            _isLocating = false;
+            _isSubmitting = false;
         }
+    }
+
+    private async Task<AttendanceSubmissionResult> SubmitAttendanceAsync(BrowserLocation currentLocation)
+    {
+        if (_selfieDataUrl is null)
+        {
+            throw new InvalidOperationException("Capture your face before signing attendance.");
+        }
+
+        var photoBytes = GetPhotoBytes(_selfieDataUrl);
+        using var formData = new MultipartFormDataContent();
+
+        formData.Add(new StringContent(_attendanceModel.Name.Trim()), "name");
+        formData.Add(new StringContent(currentLocation.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)), "latitude");
+        formData.Add(new StringContent(currentLocation.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)), "longitude");
+        formData.Add(new StringContent(currentLocation.AccuracyMeters?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty), "accuracy");
+        formData.Add(new StringContent(DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture)), "capturedAtUtc");
+
+        using var photoContent = new ByteArrayContent(photoBytes);
+        photoContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        formData.Add(photoContent, "photo", "selfie.jpg");
+
+        using var response = await Http.PostAsync(SignAttendanceEndpoint, formData);
+        var json = await response.Content.ReadAsStringAsync();
+        var result = System.Text.Json.JsonSerializer.Deserialize<AttendanceSubmissionResult>(json, JsonOptions);
+
+        if (result is null)
+        {
+            throw new InvalidOperationException("Attendance service returned an unreadable response.");
+        }
+
+        if (!response.IsSuccessStatusCode && string.IsNullOrWhiteSpace(result.Reason))
+        {
+            throw new InvalidOperationException("Attendance service rejected the request.");
+        }
+
+        return result;
+    }
+
+    private static byte[] GetPhotoBytes(string dataUrl)
+    {
+        var commaIndex = dataUrl.IndexOf(',');
+        var base64 = commaIndex >= 0 ? dataUrl[(commaIndex + 1)..] : dataUrl;
+
+        return Convert.FromBase64String(base64);
     }
 
     private async Task LogoutAsync()
@@ -127,11 +310,67 @@
         Navigation.NavigateTo("/login", replace: true);
     }
 
-    private static string FormatAccuracy(double? accuracyMeters)
+    private async Task StopCameraAsync()
     {
-        return accuracyMeters is null
+        if (!_isCameraActive)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("smartCodeFaceCamera.stopCamera", _videoElement);
+        _isCameraActive = false;
+    }
+
+    private static string FormatDistance(double? distanceMeters)
+    {
+        return distanceMeters is null
             ? "Unknown"
-            : SmartCodeGeofenceService.FormatDistance(accuracyMeters.Value);
+            : SmartCodeGeofenceService.FormatDistance(distanceMeters.Value);
+    }
+
+    private static string FormatConfidence(double? confidence)
+    {
+        return confidence is null
+            ? "Unknown"
+            : $"{confidence:P0}";
+    }
+
+    private static string BuildResultMessage(AttendanceSubmissionResult result)
+    {
+        return result.Reason switch
+        {
+            "approved" => $"Attendance accepted for {result.EmployeeName}. Location and face verification passed.",
+            "unknown_employee" => "Unknown employee. Ask an administrator to enroll your Luxand person UUID.",
+            "outside_workspace" => "Outside workspace. Attendance requires being inside the approved location boundary.",
+            "face_mismatch" => "Face mismatch. Capture a clear selfie and try again.",
+            "liveness_failed" => "Liveness failed. Capture a live face photo and try again.",
+            "luxand_api_error" => "Luxand API error. Please try again shortly.",
+            "invalid_request" => "Missing or invalid attendance details.",
+            "server_config_error" => "Attendance service is not configured correctly.",
+            _ => result.Approved ? "Attendance accepted." : "Attendance denied."
+        };
+    }
+
+    private static string BuildSnackbarMessage(AttendanceSubmissionResult result)
+    {
+        if (!result.Approved)
+        {
+            return BuildResultMessage(result);
+        }
+
+        return $"{BuildResultMessage(result)} Distance: {FormatDistance(result.DistanceMeters)}. Face confidence: {FormatConfidence(result.Confidence)}.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await StopCameraAsync();
+        }
+        catch (JSException)
+        {
+            // The JS runtime can already be gone during page teardown.
+        }
     }
 
     private sealed class AttendanceFormModel
@@ -139,5 +378,24 @@
         [Required(ErrorMessage = "Enter your name before signing attendance.")]
         [MinLength(2, ErrorMessage = "Name must be at least 2 characters.")]
         public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class AttendanceSubmissionResult
+    {
+        public bool Approved { get; set; }
+
+        public bool LocationApproved { get; set; }
+
+        public bool FaceApproved { get; set; }
+
+        public bool? LivenessApproved { get; set; }
+
+        public string EmployeeName { get; set; } = string.Empty;
+
+        public double? DistanceMeters { get; set; }
+
+        public double? Confidence { get; set; }
+
+        public string Reason { get; set; } = string.Empty;
     }
 }

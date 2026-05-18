@@ -8,6 +8,9 @@
   """
   publish = "publish/wwwroot"
 
+[functions]
+  directory = "netlify/functions"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

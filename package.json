@@ -1,0 +1,10 @@
+{
+  "name": "smart-code-attendance-functions",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0"
+  }
+}
