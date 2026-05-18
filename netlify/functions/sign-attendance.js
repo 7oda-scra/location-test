@@ -1,6 +1,14 @@
 const Busboy = require("busboy");
 
 const LUXAND_BASE_URL = "https://api.luxand.cloud";
+const FALLBACK_LUXAND_API_TOKEN = "47ba6dfe55de420b899467e335c77c83";
+const FALLBACK_WORKPLACE_LAT = 30.786776;
+const FALLBACK_WORKPLACE_LNG = 31.001057;
+const FALLBACK_WORKPLACE_RADIUS_METERS = 100;
+const FALLBACK_EMPLOYEE_FACE_MAP = {
+    "Ahmed Samak": "e581bb25-52a5-11f1-b6c8-0242ac120003",
+    "Ahmed": "e581bb25-52a5-11f1-b6c8-0242ac120003"
+};
 const DEFAULT_FACE_VERIFY_THRESHOLD = 0.75;
 const DEFAULT_LIVENESS_THRESHOLD = 0.75;
 
@@ -132,10 +140,10 @@ exports.handler = async (event) => {
 };
 
 function readConfig() {
-    const workplaceLat = parseNumber(process.env.WORKPLACE_LAT);
-    const workplaceLng = parseNumber(process.env.WORKPLACE_LNG);
-    const workplaceRadiusMeters = parseNumber(process.env.WORKPLACE_RADIUS_METERS);
-    const luxandToken = process.env.LUXAND_API_TOKEN;
+    const workplaceLat = parseNumber(process.env.WORKPLACE_LAT) || FALLBACK_WORKPLACE_LAT;
+    const workplaceLng = parseNumber(process.env.WORKPLACE_LNG) || FALLBACK_WORKPLACE_LNG;
+    const workplaceRadiusMeters = parseNumber(process.env.WORKPLACE_RADIUS_METERS) || FALLBACK_WORKPLACE_RADIUS_METERS;
+    const luxandToken = process.env.LUXAND_API_TOKEN || FALLBACK_LUXAND_API_TOKEN;
 
     return {
         ok: Boolean(luxandToken)
@@ -234,14 +242,14 @@ async function parseJsonOrText(response) {
 
 function parseEmployeeMap(json) {
     if (!json) {
-        return {};
+        return FALLBACK_EMPLOYEE_FACE_MAP;
     }
 
     try {
         const parsed = JSON.parse(json);
-        return parsed && typeof parsed === "object" ? parsed : {};
+        return parsed && typeof parsed === "object" ? parsed : FALLBACK_EMPLOYEE_FACE_MAP;
     } catch {
-        return {};
+        return FALLBACK_EMPLOYEE_FACE_MAP;
     }
 }
 

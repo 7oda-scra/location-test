@@ -13,10 +13,12 @@ WORKPLACE_LNG=31.001057
 WORKPLACE_RADIUS_METERS=100
 FACE_VERIFY_THRESHOLD=0.75
 REQUIRE_LIVENESS=false
-EMPLOYEE_FACE_MAP_JSON={"Ahmed":"PUT_AHMED_LUXAND_UUID_HERE"}
+EMPLOYEE_FACE_MAP_JSON={"Ahmed Samak":"e581bb25-52a5-11f1-b6c8-0242ac120003"}
 ```
 
 `LUXAND_API_TOKEN` must never be placed in Blazor WASM `appsettings`, Razor files, JavaScript, or any frontend code. The browser posts the employee name, GPS position, and selfie only to `/.netlify/functions/sign-attendance`; the function keeps the token server-side and calls Luxand.
+
+For this MVP, the Netlify Function also has server-side fallback values for the Luxand token, Smart Code workplace location, and Ahmed Samak's Luxand UUID. Netlify environment variables still take priority when they are configured.
 
 ## Luxand Enrollment
 
@@ -25,7 +27,7 @@ EMPLOYEE_FACE_MAP_JSON={"Ahmed":"PUT_AHMED_LUXAND_UUID_HERE"}
 3. Add the employee name and UUID to `EMPLOYEE_FACE_MAP_JSON`, for example:
 
 ```json
-{"Ahmed":"PUT_AHMED_LUXAND_UUID_HERE","Sara":"PUT_SARA_LUXAND_UUID_HERE"}
+{"Ahmed Samak":"e581bb25-52a5-11f1-b6c8-0242ac120003","Sara":"PUT_SARA_LUXAND_UUID_HERE"}
 ```
 
 The function looks up the UUID from this server-side map. It does not trust a UUID sent from the browser.
